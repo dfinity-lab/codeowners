@@ -1,11 +1,10 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'codeowners'
+description: 'Update PR with details of missing reviews'
+author: 'Nik Clayton'
 inputs:
-  milliseconds: # change this
+  token:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'Token to perform API calls'
 runs:
   using: 'node12'
   main: 'dist/index.js'

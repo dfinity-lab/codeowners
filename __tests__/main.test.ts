@@ -1,28 +1,91 @@
-import {wait} from '../src/wait'
-import * as process from 'process'
-import * as cp from 'child_process'
-import * as path from 'path'
+import {getFileOwners, parseCodeOwnersContent} from '../src/main'
 
-test('throws invalid number', async () => {
-  const input = parseInt('foo', 10)
-  await expect(wait(input)).rejects.toThrow('milliseconds not a number')
-})
+describe('parseCodeOwnersContent', () => {
+  const tests = [
+    {
+      name: 'single line',
+      content: '/foo @nikclayton',
+      want: [{path: '/foo', owners: ['@nikclayton']}]
+    },
+    {
+      name: 'comment',
+      content: `# This is a comment
+/foo @nikclayton`,
+      want: [{path: '/foo', owners: ['@nikclayton']}]
+    },
+    {
+      name: 'multiple owners',
+      content: '/foo @bar @baz',
+      want: [{path: '/foo', owners: ['@bar', '@baz']}]
+    }
+  ]
 
-test('wait 500 ms', async () => {
-  const start = new Date()
-  await wait(500)
-  const end = new Date()
-  var delta = Math.abs(end.getTime() - start.getTime())
-  expect(delta).toBeGreaterThan(450)
-})
-
-// shows how the runner will run a javascript action with env / stdout protocol
-test('test runs', () => {
-  process.env['INPUT_MILLISECONDS'] = '500'
-  const np = process.execPath
-  const ip = path.join(__dirname, '..', 'lib', 'main.js')
-  const options: cp.ExecFileSyncOptions = {
-    env: process.env
+  for (const t of tests) {
+    test(t.name, () => {
+      const got = parseCodeOwnersContent(t.content)
+      expect(got).toEqual(t.want)
+    })
   }
-  console.log(cp.execFileSync(np, [ip], options).toString())
+})
+
+describe('getFileOwners', () => {
+  const tests = [
+    {
+      name: 'single owner',
+      content: '/foo @nikclayton',
+      filename: 'foo',
+      want: ['nikclayton']
+    },
+    {
+      name: 'multiple owners',
+      content: '/foo @bar @baz',
+      filename: 'foo',
+      want: ['bar', 'baz']
+    },
+    {
+      name: 'last entry wins',
+      content: `/foo @bar @baz
+/foo @fred`,
+      filename: 'foo',
+      want: ['fred']
+    },
+    {
+      name: 'file in any subdirectory matches',
+      content: 'foo/ @bar',
+      filename: '/foo/bar/baz',
+      want: ['bar']
+    },
+    {
+      name: 'only immediate children are tested (1)',
+      content: 'foo/*.txt @bar',
+      filename: 'foo/test.txt',
+      want: ['bar']
+    },
+    {
+      name: 'only immediate children are tested (2)',
+      content: 'foo/*.txt @bar',
+      filename: '/foo/bar/test.txt',
+      want: []
+    },
+    {
+      name: 'file with no owners',
+      content: '/foo @bar',
+      filename: 'not-in-codeowners',
+      want: []
+    },
+    {
+      name: '@ghost implies no owners',
+      content: '/foo @ghost',
+      filename: 'foo',
+      want: []
+    }
+  ]
+
+  for (const t of tests) {
+    test(t.name, () => {
+      const codeOwners = parseCodeOwnersContent(t.content)
+      const owners = getFileOwners(codeOwners, t.filename)
+      expect(owners).toEqual(t.want)
+    })
+  }
 })
