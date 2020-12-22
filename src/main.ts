@@ -166,22 +166,28 @@ export default async function run(): Promise<void> {
  * @param reviewStates
  */
 function createCommentContent(reviewStates: ReviewState[]): string {
-  let comment = `${COMMENT_HEADER}**Review status**\n\n`
+  const header = `${COMMENT_HEADER}\n**Review status**\n\n`
+
+  const comments = []
 
   for (const entry of reviewStates) {
-    if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
+    if (entry.approvers.length === 0 && entry.nonApprovers.length === 0) {
+      comments.push(`&check; \`${entry.path}\`: No approval required`)
+      continue
+    } else if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
       const status = '&check;'
       const approvers = entry.approvers.map(user => `**${user}**`)
       const allUsers = [...approvers, ...entry.nonApprovers].join(', ')
-      comment += `${status} \`${entry.path}\`: ${allUsers}\\\n`
+      comments.push(`${status} \`${entry.path}\`: ${allUsers}`)
+      continue
     } else {
       const status = '&cross;'
       const nonApprovers = entry.nonApprovers.join(', ')
-      comment += `${status} \`${entry.path}\`: ${nonApprovers}\\\n`
+      comments.push(`${status} \`${entry.path}\`: ${nonApprovers}`)
     }
   }
 
-  return comment
+  return header + comments.join('\\\n')
 }
 
 /**
