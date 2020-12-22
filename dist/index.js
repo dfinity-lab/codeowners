@@ -135,9 +135,11 @@ function run() {
                 core.info(`${owner} is a team, expanding`);
                 let members = teamMap.get(owner);
                 if (members === undefined) {
+                    const team_slug = owner.split('/', 2)[1];
+                    core.info(`Getting members of ${team_slug}`);
                     members = yield octokit.paginate(octokit.teams.listMembersInOrg, {
                         org: context.repo.owner,
-                        team_slug: owner
+                        team_slug
                     });
                     teamMap.set(owner, members);
                     core.info(`expanded ${owner} -> ${members.join(', ')}`);
