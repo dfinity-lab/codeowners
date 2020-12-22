@@ -142,9 +142,10 @@ function run() {
                         team_slug
                     });
                     teamMap.set(owner, members);
-                    core.info(`expanded ${owner} -> ${members.join(', ')}`);
                 }
-                members.forEach((member) => expandedFileOwners.push(member));
+                for (const member of members) {
+                    expandedFileOwners.push(member.login);
+                }
             }
             // Has this file been approved by one of its owners?
             const approvers = expandedFileOwners.filter(owner => approvingReviewers.includes(owner));

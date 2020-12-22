@@ -100,10 +100,11 @@ export default async function run(): Promise<void> {
           team_slug
         })
         teamMap.set(owner, members)
-        core.info(`expanded ${owner} -> ${members.join(', ')}`)
       }
 
-      members.forEach((member: string) => expandedFileOwners.push(member))
+      for (const member of members) {
+        expandedFileOwners.push(member.login)
+      }
     }
 
     // Has this file been approved by one of its owners?
