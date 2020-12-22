@@ -198,7 +198,7 @@ function createComment(reviewStates) {
  */
 function getCodeOwnersMap(repo, octokit, file) {
     return __awaiter(this, void 0, void 0, function* () {
-        const result = octokit.repos.getContents(Object.assign(Object.assign({}, repo), { path: file }));
+        const result = octokit.repos.getContent(Object.assign(Object.assign({}, repo), { path: file }));
         const content = Buffer.from(result.data.content, 'base64').toString();
         return parseCodeOwnersContent(content);
     });

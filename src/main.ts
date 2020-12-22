@@ -168,7 +168,7 @@ async function getCodeOwnersMap(
   octokit: Octokit,
   file: string
 ): Promise<CodeOwners> {
-  const result = octokit.repos.getContents({...repo, path: file})
+  const result = octokit.repos.getContent({...repo, path: file})
   const content = Buffer.from(result.data.content, 'base64').toString()
 
   return parseCodeOwnersContent(content)
