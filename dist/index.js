@@ -179,42 +179,68 @@ exports.default = run;
 /**
  * Create a GFM comment based on the reviewStates.
  *
- * Start with a heading, and then one line per file with either a check or
- * a cross indicating the state, and the filename. Approving reviewers are
- * show in bold, non-approving reviewers without bold.
+ * Start with COMMENT_HEADER, so this comment can be found again in
+ * subsequent runs.
  *
- * ---
- * **Review status**:
+ * If any files need approval, list them, like
  *
- * &check; `path/to/file`: foo, **bar**, **baz**\
- * &check; `a/nother/file`: foo, **baz**\
+ * ----
  * &cross; `one/more/file`: foo\
- * ---
+ * ----
+ *
+ * List all files that don't need approval in a <details> block so they are
+ * hidden by default.
  *
  * @param reviewStates
  */
 function createCommentContent(reviewStates) {
     const header = `${COMMENT_HEADER}\n**Review status**\n\n`;
-    const comments = [];
+    const needApproval = [];
+    const totalFiles = reviewStates.length;
+    // No files in the PR? Indicate that and return
+    if (totalFiles === 0) {
+        return `${header} There are no files in the PR yet.`;
+    }
+    // First, list the files that still need approval
+    let filesProcessed = 0;
     for (const entry of reviewStates) {
-        if (entry.approvers.length === 0 && entry.nonApprovers.length === 0) {
-            comments.push(`&check; \`${entry.path}\`: No approval required`);
-            continue;
-        }
-        else if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
-            const status = '&check;';
-            const approvers = entry.approvers.map(user => `**${user}**`);
-            const allUsers = [...approvers, ...entry.nonApprovers].join(', ');
-            comments.push(`${status} \`${entry.path}\`: ${allUsers}`);
-            continue;
-        }
-        else {
-            const status = '&cross;';
+        if (entry.approvers.length === 0 && entry.nonApprovers.length > 0) {
             const nonApprovers = entry.nonApprovers.join(', ');
-            comments.push(`${status} \`${entry.path}\`: ${nonApprovers}`);
+            needApproval.push(`&cross; \`${entry.path}\`: ${nonApprovers}`);
+            filesProcessed++;
         }
     }
-    return header + comments.join('\\\n');
+    // If all files need to be approved then return early
+    if (filesProcessed === totalFiles) {
+        return `${header}${needApproval.join('\\\n')}`;
+    }
+    // If there were no unapproved files then return early
+    if (filesProcessed === 0) {
+        return `${header}All files in the PR are approved.`;
+    }
+    // Generate a <details> block for files that are approved or don't
+    // need approval
+    const approved = [];
+    for (const entry of reviewStates) {
+        if (entry.approvers.length === 0 && entry.nonApprovers.length === 0) {
+            approved.push(`&check; \`${entry.path}\`: No approval required`);
+        }
+        else if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
+            const approvers = entry.approvers.map(user => `**${user}**`);
+            const allUsers = [...approvers, ...entry.nonApprovers].join(', ');
+            approved.push(`&check; \`${entry.path}\`: ${allUsers}`);
+        }
+    }
+    const body = `${header}${needApproval.join('\\\n')}
+  
+  <details>
+  <summary>Approved files</summary>
+  
+  ${approved.join('\\\n')}
+  
+  </details>
+  `;
+    return body;
 }
 /**
  * Parse the CODEOWNERS file in to a map
