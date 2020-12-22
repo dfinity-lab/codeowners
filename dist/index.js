@@ -82,6 +82,8 @@ const github = __importStar(__webpack_require__(438));
 const ignore_1 = __importDefault(__webpack_require__(230));
 /** Review state indicating approval */
 const APPROVED = 'APPROVED';
+/** Header for comment so it can be found again */
+const COMMENT_HEADER = '<!-- codeowners comment header -->';
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const token = core.getInput('token');
@@ -108,7 +110,7 @@ function run() {
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, '.github/CODEOWNERS');
         // Get the files in this PR
         const files = yield octokit.paginate(octokit.pulls.listFiles, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }));
-        core.info(`Files: ${files}`);
+        core.info(`Files: ${files.join(',')}`);
         // Get all the reviewers who have approved this PR
         const approvingReviewers = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }), response => response.data
             .filter(review => review.state === APPROVED)
@@ -151,9 +153,18 @@ function run() {
                 approvers
             });
         }
-        const comment = createComment(reviewStates);
-        // For now, log the comment, to verify it's created correctly
-        core.info(comment);
+        const commentContent = createCommentContent(reviewStates);
+        // Find all comments
+        const comments = yield octokit.paginate(octokit.issues.listComments, Object.assign(Object.assign({}, context.repo), { issue_number: pull_request.number }));
+        // Find the first one that includes our header
+        const previousComment = comments.find(comment => comment.body && comment.body.includes(COMMENT_HEADER));
+        // Update or create as necessary
+        if (previousComment) {
+            yield octokit.issues.updateComment(Object.assign(Object.assign({}, context.repo), { comment_id: previousComment.id, body: commentContent }));
+        }
+        else {
+            yield octokit.issues.createComment(Object.assign(Object.assign({}, context.repo), { issue_number: pull_request.number, body: commentContent }));
+        }
     });
 }
 exports.default = run;
@@ -174,8 +185,8 @@ exports.default = run;
  *
  * @param reviewStates
  */
-function createComment(reviewStates) {
-    let comment = '**Review status**\n\n';
+function createCommentContent(reviewStates) {
+    let comment = `${COMMENT_HEADER}**Review status**\n\n`;
     for (const entry of reviewStates) {
         if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
             const status = '&check;';

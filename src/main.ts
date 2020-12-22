@@ -13,6 +13,9 @@ type ReviewState = {path: string; nonApprovers: string[]; approvers: string[]}
 /** Review state indicating approval */
 const APPROVED = 'APPROVED'
 
+/** Header for comment so it can be found again */
+const COMMENT_HEADER = '<!-- codeowners comment header -->'
+
 export default async function run(): Promise<void> {
   const token = core.getInput('token')
   const octokit = github.getOctokit(token)
@@ -52,7 +55,7 @@ export default async function run(): Promise<void> {
     pull_number: pull_request.number
   })
 
-  core.info(`Files: ${files}`)
+  core.info(`Files: ${files.join(',')}`)
 
   // Get all the reviewers who have approved this PR
   const approvingReviewers = await octokit.paginate(
@@ -116,10 +119,33 @@ export default async function run(): Promise<void> {
     })
   }
 
-  const comment = createComment(reviewStates)
+  const commentContent = createCommentContent(reviewStates)
 
-  // For now, log the comment, to verify it's created correctly
-  core.info(comment)
+  // Find all comments
+  const comments = await octokit.paginate(octokit.issues.listComments, {
+    ...context.repo,
+    issue_number: pull_request.number
+  })
+
+  // Find the first one that includes our header
+  const previousComment = comments.find(
+    comment => comment.body && comment.body.includes(COMMENT_HEADER)
+  )
+
+  // Update or create as necessary
+  if (previousComment) {
+    await octokit.issues.updateComment({
+      ...context.repo,
+      comment_id: previousComment.id,
+      body: commentContent
+    })
+  } else {
+    await octokit.issues.createComment({
+      ...context.repo,
+      issue_number: pull_request.number,
+      body: commentContent
+    })
+  }
 }
 
 /**
@@ -139,8 +165,8 @@ export default async function run(): Promise<void> {
  *
  * @param reviewStates
  */
-function createComment(reviewStates: ReviewState[]): string {
-  let comment = '**Review status**\n\n'
+function createCommentContent(reviewStates: ReviewState[]): string {
+  let comment = `${COMMENT_HEADER}**Review status**\n\n`
 
   for (const entry of reviewStates) {
     if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
