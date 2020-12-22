@@ -55,7 +55,7 @@ export default async function run(): Promise<void> {
     pull_number: pull_request.number
   })
 
-  core.info(`Files: ${files.join(',')}`)
+  core.info(`Files: ${files.map(file => file.filename).join(', ')}`)
 
   // Get all the reviewers who have approved this PR
   const approvingReviewers = await octokit.paginate(
@@ -124,6 +124,9 @@ export default async function run(): Promise<void> {
 
   const commentContent = createCommentContent(reviewStates)
 
+  core.info('Comment text')
+  core.info(commentContent)
+
   // Find all comments
   const comments = await octokit.paginate(octokit.issues.listComments, {
     ...context.repo,
@@ -137,12 +140,14 @@ export default async function run(): Promise<void> {
 
   // Update or create as necessary
   if (previousComment) {
+    core.info('Found existing comment, updating')
     await octokit.issues.updateComment({
       ...context.repo,
       comment_id: previousComment.id,
       body: commentContent
     })
   } else {
+    core.info('Did not find existing comment, creating new comment')
     await octokit.issues.createComment({
       ...context.repo,
       issue_number: pull_request.number,

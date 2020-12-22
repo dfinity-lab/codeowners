@@ -110,7 +110,7 @@ function run() {
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, '.github/CODEOWNERS');
         // Get the files in this PR
         const files = yield octokit.paginate(octokit.pulls.listFiles, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }));
-        core.info(`Files: ${files.join(',')}`);
+        core.info(`Files: ${files.map(file => file.filename).join(', ')}`);
         // Get all the reviewers who have approved this PR
         const approvingReviewers = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }), response => response.data
             .filter(review => review.state === APPROVED)
@@ -157,15 +157,19 @@ function run() {
             });
         }
         const commentContent = createCommentContent(reviewStates);
+        core.info('Comment text');
+        core.info(commentContent);
         // Find all comments
         const comments = yield octokit.paginate(octokit.issues.listComments, Object.assign(Object.assign({}, context.repo), { issue_number: pull_request.number }));
         // Find the first one that includes our header
         const previousComment = comments.find(comment => comment.body && comment.body.includes(COMMENT_HEADER));
         // Update or create as necessary
         if (previousComment) {
+            core.info('Found existing comment, updating');
             yield octokit.issues.updateComment(Object.assign(Object.assign({}, context.repo), { comment_id: previousComment.id, body: commentContent }));
         }
         else {
+            core.info('Did not find existing comment, creating new comment');
             yield octokit.issues.createComment(Object.assign(Object.assign({}, context.repo), { issue_number: pull_request.number, body: commentContent }));
         }
     });
