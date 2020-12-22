@@ -35,9 +35,9 @@ export default async function run(): Promise<void> {
   const pull_request = payload.pull_request
 
   const prAuthor = pull_request.user.login
-  console.log(`Author: ${prAuthor}`)
+  core.info(`Author: ${prAuthor}`)
   if (prAuthor !== 'nikclayton-dfinity') {
-    console.log(`PR author ${prAuthor}, skipping`)
+    core.info(`PR author ${prAuthor}, skipping`)
   }
 
   const codeOwners = await getCodeOwnersMap(
@@ -52,7 +52,7 @@ export default async function run(): Promise<void> {
     pull_number: pull_request.number
   })
 
-  console.log(`Files: ${files}`)
+  core.info(`Files: ${files}`)
 
   // Get all the reviewers who have approved this PR
   const approvingReviewers = await octokit.paginate(
@@ -65,7 +65,7 @@ export default async function run(): Promise<void> {
         .map(review => review.user!.login)
   )
 
-  console.log(`Approving Reviewers: ${approvingReviewers}`)
+  core.info(`Approving Reviewers: ${approvingReviewers}`)
 
   /** State of the review */
   const reviewStates: ReviewState[] = []
@@ -81,12 +81,12 @@ export default async function run(): Promise<void> {
     // Expand teams
     for (const owner of fileOwners) {
       if (!owner.includes('/')) {
-        console.log(`${owner} is not a team, using as is`)
+        core.info(`${owner} is not a team, using as is`)
         expandedFileOwners.push(owner)
         continue
       }
 
-      console.log(`${owner} is a team, expanding`)
+      core.info(`${owner} is a team, expanding`)
 
       let members = teamMap.get(owner)
       if (members === undefined) {
@@ -95,7 +95,7 @@ export default async function run(): Promise<void> {
           team_slug: owner
         })
         teamMap.set(owner, members)
-        console.log(`expanded ${owner} -> ${members.join(', ')}`)
+        core.info(`expanded ${owner} -> ${members.join(', ')}`)
       }
 
       members.forEach((member: string) => expandedFileOwners.push(member))
@@ -119,7 +119,7 @@ export default async function run(): Promise<void> {
   const comment = createComment(reviewStates)
 
   // For now, log the comment, to verify it's created correctly
-  console.log(comment)
+  core.info(comment)
 }
 
 /**

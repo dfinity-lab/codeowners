@@ -64,20 +64,20 @@ function run() {
         }
         const pull_request = payload.pull_request;
         const prAuthor = pull_request.user.login;
-        console.log(`Author: ${prAuthor}`);
+        core.info(`Author: ${prAuthor}`);
         if (prAuthor !== 'nikclayton-dfinity') {
-            console.log(`PR author ${prAuthor}, skipping`);
+            core.info(`PR author ${prAuthor}, skipping`);
         }
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, '.github/CODEOWNERS');
         // Get the files in this PR
         const files = yield octokit.paginate(octokit.pulls.listFiles, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }));
-        console.log(`Files: ${files}`);
+        core.info(`Files: ${files}`);
         // Get all the reviewers who have approved this PR
         const approvingReviewers = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }), response => response.data
             .filter(review => review.state === APPROVED)
             .filter(review => review.user !== undefined && review.user !== null)
             .map(review => review.user.login));
-        console.log(`Approving Reviewers: ${approvingReviewers}`);
+        core.info(`Approving Reviewers: ${approvingReviewers}`);
         /** State of the review */
         const reviewStates = [];
         const teamMap = new Map();
@@ -89,11 +89,11 @@ function run() {
             // Expand teams
             for (const owner of fileOwners) {
                 if (!owner.includes('/')) {
-                    console.log(`${owner} is not a team, using as is`);
+                    core.info(`${owner} is not a team, using as is`);
                     expandedFileOwners.push(owner);
                     continue;
                 }
-                console.log(`${owner} is a team, expanding`);
+                core.info(`${owner} is a team, expanding`);
                 let members = teamMap.get(owner);
                 if (members === undefined) {
                     members = yield octokit.paginate(octokit.teams.listMembersInOrg, {
@@ -101,7 +101,7 @@ function run() {
                         team_slug: owner
                     });
                     teamMap.set(owner, members);
-                    console.log(`expanded ${owner} -> ${members.join(', ')}`);
+                    core.info(`expanded ${owner} -> ${members.join(', ')}`);
                 }
                 members.forEach((member) => expandedFileOwners.push(member));
             }
@@ -116,7 +116,7 @@ function run() {
         }
         const comment = createComment(reviewStates);
         // For now, log the comment, to verify it's created correctly
-        console.log(comment);
+        core.info(comment);
     });
 }
 exports.default = run;
