@@ -106,6 +106,7 @@ function run() {
         core.info(`Author: ${prAuthor}`);
         if (prAuthor !== 'nikclayton-dfinity') {
             core.info(`PR author ${prAuthor}, skipping`);
+            return;
         }
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, '.github/CODEOWNERS');
         // Get the files in this PR

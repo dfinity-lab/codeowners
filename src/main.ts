@@ -41,6 +41,7 @@ export default async function run(): Promise<void> {
   core.info(`Author: ${prAuthor}`)
   if (prAuthor !== 'nikclayton-dfinity') {
     core.info(`PR author ${prAuthor}, skipping`)
+    return
   }
 
   const codeOwners = await getCodeOwnersMap(
