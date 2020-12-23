@@ -102,12 +102,12 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const codeowners_path = core.getInput('codeowners_path');
         if (codeowners_path === undefined) {
-            core.error('"codeowners_path" is not set, exiting');
+            core.setFailed('"codeowners_path" is not set, exiting');
             return;
         }
         const token = core.getInput('token');
         if (token === undefined) {
-            core.error('"token" is not set in workflow file, exiting');
+            core.setFailed('"token" is not set in workflow file, exiting');
             return;
         }
         const octokit = github.getOctokit(token);
@@ -121,7 +121,7 @@ function run() {
                 payload = context.payload;
                 break;
             default:
-                core.setFailed(`Unexpected event: ${context.eventName}, skipping`);
+                core.setFailed(`Unexpected event: ${context.eventName}, exiting`);
                 return;
         }
         const pull_request = payload.pull_request;
@@ -272,6 +272,7 @@ function createCommentContent(reviewStates) {
  */
 function getCodeOwnersMap(repo, octokit, file) {
     return __awaiter(this, void 0, void 0, function* () {
+        core.info(`Loading owners from ${file}`);
         const result = yield octokit.repos.getContent(Object.assign(Object.assign({}, repo), { path: file }));
         const content = Buffer.from(result.data.content, 'base64').toString();
         return parseCodeOwnersContent(content);

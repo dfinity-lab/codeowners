@@ -19,13 +19,13 @@ const COMMENT_HEADER = '<!-- codeowners comment header -->'
 export default async function run(): Promise<void> {
   const codeowners_path = core.getInput('codeowners_path')
   if (codeowners_path === undefined) {
-    core.error('"codeowners_path" is not set, exiting')
+    core.setFailed('"codeowners_path" is not set, exiting')
     return
   }
 
   const token = core.getInput('token')
   if (token === undefined) {
-    core.error('"token" is not set in workflow file, exiting')
+    core.setFailed('"token" is not set in workflow file, exiting')
     return
   }
 
@@ -42,7 +42,7 @@ export default async function run(): Promise<void> {
       payload = context.payload as WebHooks.EventPayloads.WebhookPayloadPullRequestReview
       break
     default:
-      core.setFailed(`Unexpected event: ${context.eventName}, skipping`)
+      core.setFailed(`Unexpected event: ${context.eventName}, exiting`)
       return
   }
 
@@ -254,6 +254,7 @@ async function getCodeOwnersMap(
   octokit: Octokit,
   file: string
 ): Promise<CodeOwners> {
+  core.info(`Loading owners from ${file}`)
   const result = await octokit.repos.getContent({...repo, path: file})
   const content = Buffer.from(result.data.content, 'base64').toString()
 
