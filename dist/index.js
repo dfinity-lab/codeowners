@@ -100,16 +100,8 @@ const APPROVED = 'APPROVED';
 const COMMENT_HEADER = '<!-- codeowners comment header -->';
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        const codeowners_path = core.getInput('codeowners_path');
-        if (codeowners_path === undefined) {
-            core.setFailed('"codeowners_path" is not set, exiting');
-            return;
-        }
-        const token = core.getInput('token');
-        if (token === undefined) {
-            core.setFailed('"token" is not set in workflow file, exiting');
-            return;
-        }
+        const codeowners_path = core.getInput('codeowners_path', { required: true });
+        const token = core.getInput('token', { required: true });
         const octokit = github.getOctokit(token);
         const context = github.context;
         let payload;
