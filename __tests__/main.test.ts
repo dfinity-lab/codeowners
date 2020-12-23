@@ -52,7 +52,7 @@ describe('getFileOwners', () => {
     {
       name: 'file in any subdirectory matches',
       content: 'foo/ @bar',
-      filename: '/foo/bar/baz',
+      filename: 'foo/bar/baz',
       want: ['bar']
     },
     {
@@ -64,7 +64,7 @@ describe('getFileOwners', () => {
     {
       name: 'only immediate children are tested (2)',
       content: 'foo/*.txt @bar',
-      filename: '/foo/bar/test.txt',
+      filename: 'foo/bar/test.txt',
       want: []
     },
     {
