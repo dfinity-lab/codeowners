@@ -2,6 +2,9 @@ name: 'codeowners'
 description: 'Update PR with details of missing reviews'
 author: 'Nik Clayton'
 inputs:
+  codeowners_path:
+    required: true
+    description: 'Path to CODEOWNERS file'
   token:
     required: true
     description: 'Token to perform API calls'

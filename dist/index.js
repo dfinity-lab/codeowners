@@ -100,7 +100,16 @@ const APPROVED = 'APPROVED';
 const COMMENT_HEADER = '<!-- codeowners comment header -->';
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        const codeowners_path = core.getInput('codeowners_path');
+        if (codeowners_path === undefined) {
+            core.error('"codeowners_path" is not set, exiting');
+            return;
+        }
         const token = core.getInput('token');
+        if (token === undefined) {
+            core.error('"token" is not set in workflow file, exiting');
+            return;
+        }
         const octokit = github.getOctokit(token);
         const context = github.context;
         let payload;
@@ -122,7 +131,7 @@ function run() {
             core.info(`PR author ${prAuthor}, skipping`);
             return;
         }
-        const codeOwners = yield getCodeOwnersMap(context.repo, octokit, '.github/CODEOWNERS');
+        const codeOwners = yield getCodeOwnersMap(context.repo, octokit, codeowners_path);
         // Get the files in this PR
         const files = yield octokit.paginate(octokit.pulls.listFiles, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }));
         core.info(`Files: ${files.map(file => file.filename).join(', ')}`);
