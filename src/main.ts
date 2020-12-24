@@ -3,12 +3,13 @@ import * as github from '@actions/github'
 import {Octokit} from '@octokit/core'
 import * as WebHooks from '@octokit/webhooks'
 import ignore from 'ignore'
+import {FileApprovalState, FileUnderReview} from './file_under_review'
+
+/** Name of something that can own a file. Might be user, might be a team */
+type Owner = string
 
 /** CODEOWNERS file contents */
-type CodeOwners = {path: string; owners: string[]}[]
-
-/** Per file review state */
-type ReviewState = {path: string; nonApprovers: string[]; approvers: string[]}
+type CodeOwners = {path: string; owners: Owner[]}[]
 
 /** Review state indicating approval */
 const APPROVED = 'APPROVED'
@@ -37,11 +38,14 @@ export default async function run(): Promise<void> {
   }
 
   const pull_request = payload.pull_request
+  const pull_number = pull_request.number
 
   const prAuthor = pull_request.user.login
   core.info(`Author: ${prAuthor}`)
-  if (prAuthor !== 'nikclayton-dfinity') {
-    core.info(`PR author ${prAuthor}, skipping`)
+
+  const authorAllowList = ['nikclayton-dfinity']
+  if (!authorAllowList.includes(prAuthor)) {
+    core.info(`PR author ${prAuthor} not in allow list, skipping`)
     return
   }
 
@@ -54,80 +58,102 @@ export default async function run(): Promise<void> {
   // Get the files in this PR
   const files = await octokit.paginate(octokit.pulls.listFiles, {
     ...context.repo,
-    pull_number: pull_request.number
+    pull_number
   })
 
   core.info(`Files: ${files.map(file => file.filename).join(', ')}`)
 
-  // Get all the reviewers who have approved this PR
-  const approvingReviewers = await octokit.paginate(
-    octokit.pulls.listReviews,
-    {...context.repo, pull_number: pull_request.number},
-    response =>
-      response.data
-        .filter(review => review.state === APPROVED)
-        .filter(review => review.user !== undefined && review.user !== null)
-        .map(review => review.user!.login)
+  // Find all the PR reviewers. There are two groups:
+  //
+  // 1. The "requested" reviewers -- the ones that the PR author has explicitly
+  // listed for a review (or have been added automatically). These are
+  // discovered with listRequestedReviewers. If they're in this group then
+  // they haven't left a review yet.
+  //
+  // 2. Drive-bys -- other users who have seen the PR and left a review.
+  const {data: requestedReviewers} = await octokit.pulls.listRequestedReviewers(
+    {
+      ...context.repo,
+      pull_number
+    }
   )
 
-  core.info(`Approving Reviewers: ${approvingReviewers}`)
+  // requestedReviewers may contain teams. Since a reviewer can approve on
+  // behalf of multiple teams, flatten this to a set of usernames
+  const reviewers = new Set([
+    ...requestedReviewers.users.map(user => user.login)
+  ])
+  for (const team of requestedReviewers.teams) {
+    for (const member of await getTeamMembers(
+      context.repo,
+      octokit,
+      team.slug
+    )) {
+      reviewers.add(member)
+    }
+  }
 
-  /** State of the review */
-  const reviewStates: ReviewState[] = []
+  // Get all the reviews of this PR
+  const reviews = await octokit.paginate(octokit.pulls.listReviews, {
+    ...context.repo,
+    pull_number: pull_request.number
+  })
 
-  const teamMap = new Map()
+  // Add all the users who have left a review to the set of reviewers. Also,
+  // track who has left an approving review.
 
-  // Determine the owners for each file
+  /** Users who left an approving review */
+  const approvingReviewers: Set<string> = new Set()
+  for (const review of reviews) {
+    if (review.user === undefined || review.user === null) {
+      continue
+    }
+    reviewers.add(review.user.login)
+    if (review.state === APPROVED) {
+      approvingReviewers.add(review.user.login)
+    }
+  }
+
+  /** Files in this PR, their owners, review states */
+  const filesUnderReview: FileUnderReview[] = []
+
+  // Calculate approval state for each file
   for (const file of files) {
-    const filename = file.filename
-    const fileOwners = getFileOwners(codeOwners, filename)
-    const expandedFileOwners: string[] = []
-
-    // Expand teams
+    // Expand any team names to users
+    const fileOwners = getFileOwners(codeOwners, file.filename)
+    const expandedFileOwners: Set<string> = new Set()
     for (const owner of fileOwners) {
       if (!owner.includes('/')) {
-        core.info(`${owner} is not a team, using as is`)
-        expandedFileOwners.push(owner)
+        expandedFileOwners.add(owner)
         continue
       }
 
-      core.info(`${owner} is a team, expanding`)
-
-      let members = teamMap.get(owner)
-      if (members === undefined) {
-        const team_slug = owner.split('/', 2)[1]
-        core.info(`Getting members of ${team_slug}`)
-        members = await octokit.paginate(octokit.teams.listMembersInOrg, {
-          org: context.repo.owner,
-          team_slug
-        })
-        teamMap.set(owner, members)
-      }
-
-      for (const member of members) {
-        expandedFileOwners.push(member.login)
+      const team_slug = owner.split('/', 2)[1]
+      for (const member of await getTeamMembers(
+        context.repo,
+        octokit,
+        team_slug
+      )) {
+        expandedFileOwners.add(member)
       }
     }
 
-    // Has this file been approved by one of its owners?
-    const approvers = expandedFileOwners.filter(owner =>
-      approvingReviewers.includes(owner)
+    // Create the final file representation
+    filesUnderReview.push(
+      new FileUnderReview(
+        file.filename,
+        approvingReviewers,
+        expandedFileOwners,
+        reviewers
+      )
     )
-    const nonApprovers = expandedFileOwners.filter(
-      owner => !approvingReviewers.includes(owner)
-    )
-
-    reviewStates.push({
-      path: filename,
-      nonApprovers,
-      approvers
-    })
   }
 
-  const commentContent = createCommentContent(reviewStates)
+  // Generate the comment body
+  const commentBody = createCommentBody(filesUnderReview)
 
-  core.info('Comment text')
-  core.info(commentContent)
+  core.info('Comment body')
+  core.info(commentBody)
 
   // Find all comments
   const comments = await octokit.paginate(octokit.issues.listComments, {
@@ -146,14 +172,14 @@ export default async function run(): Promise<void> {
     await octokit.issues.updateComment({
       ...context.repo,
       comment_id: previousComment.id,
-      body: commentContent
+      body: commentBody
     })
   } else {
     core.info('Did not find existing comment, creating new comment')
     await octokit.issues.createComment({
       ...context.repo,
       issue_number: pull_request.number,
-      body: commentContent
+      body: commentBody
     })
   }
 }
@@ -175,63 +201,60 @@ export default async function run(): Promise<void> {
  *
  * @param reviewStates
  */
-function createCommentContent(reviewStates: ReviewState[]): string {
+export function createCommentBody(files: FileUnderReview[]): string {
   const header = `${COMMENT_HEADER}\n**Review status**\n\n`
 
-  const needApproval = []
-
-  const totalFiles = reviewStates.length
-
-  // No files in the PR? Indicate that and return
-  if (totalFiles === 0) {
-    return `${header} There are no files in the PR yet.`
+  if (files.length === 0) {
+    return `${header}There are no files in the PR.`
   }
 
-  // First, list the files that still need approval
-  let filesProcessed = 0
+  // Files that can't be approved get their own section
+  let unapprovableComment = ''
+  const filesUnapprovable = files
+    .filter(file => file.approval === FileApprovalState.Unapprovable)
+    .map(file => file.comment)
 
-  for (const entry of reviewStates) {
-    if (entry.approvers.length === 0 && entry.nonApprovers.length > 0) {
-      const nonApprovers = entry.nonApprovers.join(', ')
-      needApproval.push(`&cross; \`${entry.path}\`: ${nonApprovers}`)
-      filesProcessed++
-    }
+  if (filesUnapprovable.length > 0) {
+    unapprovableComment = `PR can not be approved, as these files can not be approved by the current reviewers:\n\n${filesUnapprovable.join(
+      '\\\n'
+    )}\n\n`
   }
 
-  // If all files need to be approved then return early
-  if (filesProcessed === totalFiles) {
-    return `${header}${needApproval.join('\\\n')}`
+  // Files that need approval get their own section
+  let pendingComment = ''
+  const filesPending = files
+    .filter(file => file.approval === FileApprovalState.Pending)
+    .map(file => file.comment)
+  if (filesPending.length > 0) {
+    pendingComment = `Waiting for approval\n\n${filesPending.join('\\\n')}\n\n`
   }
 
-  // If there were no unapproved files then return early
-  if (filesProcessed === 0) {
+  // If everything is approved then skip generating the list as it's noise
+  // at this point.
+  if (filesUnapprovable.length === 0 && filesPending.length === 0) {
     return `${header}All files in the PR are approved.`
   }
 
-  // Generate a <details> block for files that are approved or don't
-  // need approval
-  const approved = []
-  for (const entry of reviewStates) {
-    if (entry.approvers.length === 0 && entry.nonApprovers.length === 0) {
-      approved.push(`&check; \`${entry.path}\`: No approval required`)
-    } else if (entry.approvers.length > 0 || entry.nonApprovers.length === 0) {
-      const approvers = entry.approvers.map(user => `**${user}**`)
-      const allUsers = [...approvers, ...entry.nonApprovers].join(', ')
-      approved.push(`&check; \`${entry.path}\`: ${allUsers}`)
-    }
+  // Files that are approved are in a <details> block
+  let approvedComment = ''
+  const filesApproved = files
+    .filter(
+      file =>
+        file.approval === FileApprovalState.NoOwners ||
+        file.approval === FileApprovalState.Approved
+    )
+    .map(file => file.comment)
+  if (filesApproved.length > 0) {
+    approvedComment = `
+<details>
+  <summary>Approved files</summary>
+    
+${filesApproved.join('\\\n')}
+    
+</details>`
   }
 
-  const body = `${header}${needApproval.join('\\\n')}
-  
-  <details>
-  <summary>Approved files</summary>
-  
-  ${approved.join('\\\n')}
-  
-  </details>
-  `
-
-  return body
+  return `${header}${unapprovableComment}${pendingComment}${approvedComment}`
 }
 
 /**
@@ -271,7 +294,7 @@ export function parseCodeOwnersContent(content: string): CodeOwners {
 export function getFileOwners(
   codeowners: CodeOwners,
   filename: string
-): string[] {
+): Owner[] {
   // CODEOWNERS is last-one-wins. Treat it as though it was a .gitignore file,
   // process each entry in reverse, and check to see if the entry would ignore
   // `filename`. If it would then the entry is match.
@@ -284,4 +307,23 @@ export function getFileOwners(
   // file having no owners.
   if (match.owners[0] === '@ghost') return []
   return match.owners.map(user => user.replace('@', ''))
+}
+
+/** Map from team slug to members of the team */
+const teamCache = new Map()
+
+async function getTeamMembers(
+  repo: {owner: string; repo: string},
+  octokit: Octokit,
+  team_slug: string
+): Promise<string[]> {
+  let members = teamCache.get(team_slug)
+  if (members === undefined) {
+    members = await octokit.paginate(octokit.teams.listMembersInOrg, {
+      org: repo.owner,
+      team_slug
+    })
+    teamCache.set(team_slug, members)
+  }
+  return Promise.resolve(members.map((member: {login: any}) => member.login))
 }

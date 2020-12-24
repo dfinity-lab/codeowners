@@ -1,4 +1,9 @@
-import {getFileOwners, parseCodeOwnersContent} from '../src/main'
+import {FileUnderReview, FileApprovalState} from '../src/file_under_review'
+import {
+  getFileOwners,
+  parseCodeOwnersContent,
+  createCommentBody
+} from '../src/main'
 
 describe('parseCodeOwnersContent', () => {
   const tests = [
@@ -86,6 +91,130 @@ describe('getFileOwners', () => {
       const codeOwners = parseCodeOwnersContent(t.content)
       const owners = getFileOwners(codeOwners, t.filename)
       expect(owners).toEqual(t.want)
+    })
+  }
+})
+
+describe('File class', () => {
+  const tests = [
+    {
+      name: 'Single approved file',
+      approvers: ['foo'],
+      reviewers: ['foo'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Approved
+        }
+      ]
+    },
+    {
+      name: 'Two approved files',
+      approvers: ['foo'],
+      reviewers: ['foo'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Approved
+        },
+        {
+          path: 'other/path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Approved
+        }
+      ]
+    },
+    {
+      name: 'One approved file, one with no owner',
+      approvers: ['foo'],
+      reviewers: ['foo'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Approved
+        },
+        {
+          path: 'other/path/to/file',
+          owners: [],
+          state: FileApprovalState.NoOwners
+        }
+      ]
+    },
+    {
+      name: 'Reviewers cannot approve',
+      approvers: ['bar'],
+      reviewers: ['bar'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Unapprovable
+        }
+      ]
+    },
+    {
+      name: 'Multiple owners, one approval',
+      approvers: ['foo'],
+      reviewers: ['foo'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['bar', 'foo'],
+          state: FileApprovalState.Approved
+        }
+      ]
+    },
+    {
+      name: 'Single unapproved file',
+      approvers: [],
+      reviewers: ['foo'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo'],
+          state: FileApprovalState.Pending
+        }
+      ]
+    },
+    {
+      name: 'One approved file, one waiting for approval',
+      approvers: ['foo'],
+      reviewers: ['foo', 'bar'],
+      files: [
+        {
+          path: 'path/to/file',
+          owners: ['foo', 'bar'],
+          state: FileApprovalState.Approved
+        },
+        {
+          path: 'other/path/to/file',
+          owners: ['bar'],
+          state: FileApprovalState.Pending
+        }
+      ]
+    }
+  ]
+
+  for (const t of tests) {
+    test(t.name, () => {
+      const files = t.files.map(
+        file =>
+          new FileUnderReview(
+            file.path,
+            new Set(t.approvers),
+            new Set(file.owners),
+            new Set(t.reviewers)
+          )
+      )
+
+      for (const index in files) {
+        expect(files[index].approval).toEqual(t.files[index].state)
+      }
+
+      expect(createCommentBody(files)).toMatchSnapshot()
     })
   }
 })

@@ -1,0 +1,68 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`File class Multiple owners, one approval 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+All files in the PR are approved."
+`;
+
+exports[`File class One approved file, one waiting for approval 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+Waiting for approval
+
+&cross; \`other/path/to/file\`: bar
+
+
+<details>
+  <summary>Approved files</summary>
+    
+&check; \`path/to/file\`: **foo**, bar
+    
+</details>"
+`;
+
+exports[`File class One approved file, one with no owner 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+All files in the PR are approved."
+`;
+
+exports[`File class Reviewers cannot approve 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+PR can not be approved, as these files can not be approved by the current reviewers:
+
+&cross; \`path/to/file\`: foo
+
+"
+`;
+
+exports[`File class Single approved file 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+All files in the PR are approved."
+`;
+
+exports[`File class Single unapproved file 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+Waiting for approval
+
+&cross; \`path/to/file\`: foo
+
+"
+`;
+
+exports[`File class Two approved files 1`] = `
+"<!-- codeowners comment header -->
+**Review status**
+
+All files in the PR are approved."
+`;
