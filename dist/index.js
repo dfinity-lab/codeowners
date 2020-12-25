@@ -199,7 +199,7 @@ function run() {
         const pull_number = pull_request.number;
         const prAuthor = pull_request.user.login;
         core.info(`Author: ${prAuthor}`);
-        const authorAllowList = ['nikclayton-dfinity'];
+        const authorAllowList = ['nikclayton-dfinity', 'nomeata'];
         if (!authorAllowList.includes(prAuthor)) {
             core.info(`PR author ${prAuthor} not in allow list, skipping`);
             return;
