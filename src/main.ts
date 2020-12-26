@@ -90,7 +90,7 @@ export default async function run(): Promise<void> {
   // Get all the reviews of this PR
   const reviews = await octokit.paginate(octokit.pulls.listReviews, {
     ...context.repo,
-    pull_number: pull_request.number
+    pull_number
   })
 
   // Add all the users who have left a review to the set of reviewers. Also,
