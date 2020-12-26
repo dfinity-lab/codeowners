@@ -149,13 +149,25 @@ export default async function run(): Promise<void> {
   core.info('Comment body')
   core.info(commentBody)
 
-  // Find all comments
-  const comments = await octokit.paginate(octokit.issues.listComments, {
-    ...context.repo,
-    issue_number: pull_request.number
-  })
-
-  // Find the first one that includes our header
+  // Find the first comment that includes the header. Fetch all the comments,
+  // paginating, stopping as soon as we find a page with a comment that
+  // contains the header (to reduce API call usage).
+  const comments = await octokit.paginate(
+    octokit.issues.listComments,
+    {
+      ...context.repo,
+      issue_number: pull_number
+    },
+    (response, done) => {
+      response.data.find(
+        comment => comment.body && comment.body.includes(COMMENT_HEADER)
+      ) &&
+        done &&
+        done()
+      return response.data
+    }
+  )
+  // Find the actual comment
   const previousComment = comments.find(
     comment => comment.body && comment.body.includes(COMMENT_HEADER)
   )
