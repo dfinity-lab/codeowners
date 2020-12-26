@@ -10,6 +10,60 @@ This action adds a comment to a PR clearly indicating who is needed to approve t
 As approvals come in the comment is updated to reflect the current approval
 status and which files still need approval.
 
+# Sample comments
+
+If all files in the PR are approved the action leaves this comment.
+
+---
+
+**Review status**
+
+All files in the PR are approved.
+
+---
+
+Otherwise, the action leaves a comment with up to three sections, depending
+on the state of the approvals.
+
+---
+
+**Review status**
+
+PR can not be approved, as these files can not be approved by the current
+reviewers:
+
+&cross; `path/to/file`: owner1
+
+Waiting for approval
+
+&cross; `path/to/another/file`: owner2
+
+<details>
+  <summary>Approved files</summary>
+
+&check; `file/with/no/owners`: File has no owners, no approval required\
+&check; `approved/file`: owner3
+
+</details>
+
+---
+
+In this example there are four files in the PR.
+
+`path/to/file` can not be approved as the owner of the file is `owner1`, but
+they are not a reviewer on the PR.
+
+`path/to/another/file` can be approved, it is owned by `owner2` who is a
+reviewer on the PR.
+
+The files that need no further approval are listed in a `details` block
+to avoid cluttering up the comment with extraneous information.
+
+`file/with/no/owners` does not need approval as it has no owners.
+
+`approved/file` needs approval from `owner3`, who is a reviewer on the PR and
+has approved it.
+
 # Usage
 
 ## Optional: Create an access token for the action
