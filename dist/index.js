@@ -197,6 +197,9 @@ function run() {
         }
         const pull_request = payload.pull_request;
         const pull_number = pull_request.number;
+        // TODO: Ignore draft PRs? .draft property is only present if this is a
+        // WebhookPayloadPullRequest -- sort of makes sense, you wouldn't expect
+        // to get a review unless the PR was out of draft.
         const prAuthor = pull_request.user.login;
         core.info(`Author: ${prAuthor}`);
         const authorAllowList = ['nikclayton-dfinity', 'nomeata'];
@@ -211,24 +214,23 @@ function run() {
         // Find all the PR reviewers. There are two groups:
         //
         // 1. The "requested" reviewers -- the ones that the PR author has explicitly
-        // listed for a review (or have been added automatically). These are
-        // discovered with listRequestedReviewers. If they're in this group then
-        // they haven't left a review yet.
+        // listed for a review (or have been added automatically). This information is
+        // already present on the `pull_request` property.
         //
-        // 2. Drive-bys -- other users who have seen the PR and left a review.
-        const { data: requestedReviewers } = yield octokit.pulls.listRequestedReviewers(Object.assign(Object.assign({}, context.repo), { pull_number }));
+        // 2. Drive-bys -- other users who have seen the PR and left a review. This
+        // has to be fetched separately.
         // requestedReviewers may contain teams. Since a reviewer can approve on
         // behalf of multiple teams, flatten this to a set of usernames
         const reviewers = new Set([
-            ...requestedReviewers.users.map(user => user.login)
+            ...pull_request.requested_reviewers.map(user => user.login)
         ]);
-        for (const team of requestedReviewers.teams) {
+        for (const team of pull_request.requested_teams) {
             for (const member of yield getTeamMembers(context.repo, octokit, team.slug)) {
                 reviewers.add(member);
             }
         }
         // Get all the reviews of this PR
-        const reviews = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number: pull_request.number }));
+        const reviews = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number }));
         // Add all the users who have left a review to the set of reviewers. Also,
         // track who has left an approving review.
         /** Users who left an approving review */
@@ -266,9 +268,16 @@ function run() {
         const commentBody = createCommentBody(filesUnderReview);
         core.info('Comment body');
         core.info(commentBody);
-        // Find all comments
-        const comments = yield octokit.paginate(octokit.issues.listComments, Object.assign(Object.assign({}, context.repo), { issue_number: pull_request.number }));
-        // Find the first one that includes our header
+        // Find the first comment that includes the header. Fetch all the comments,
+        // paginating, stopping as soon as we find a page with a comment that
+        // contains the header (to reduce API call usage).
+        const comments = yield octokit.paginate(octokit.issues.listComments, Object.assign(Object.assign({}, context.repo), { issue_number: pull_number }), (response, done) => {
+            response.data.find(comment => comment.body && comment.body.includes(COMMENT_HEADER)) &&
+                done &&
+                done();
+            return response.data;
+        });
+        // Find the actual comment
         const previousComment = comments.find(comment => comment.body && comment.body.includes(COMMENT_HEADER));
         // Update or create as necessary
         if (previousComment) {
