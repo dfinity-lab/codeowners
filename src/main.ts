@@ -40,6 +40,10 @@ export default async function run(): Promise<void> {
   const pull_request = payload.pull_request
   const pull_number = pull_request.number
 
+  // TODO: Ignore draft PRs? .draft property is only present if this is a
+  // WebhookPayloadPullRequest -- sort of makes sense, you wouldn't expect
+  // to get a review unless the PR was out of draft.
+
   const prAuthor = pull_request.user.login
   core.info(`Author: ${prAuthor}`)
 
