@@ -66,24 +66,18 @@ export default async function run(): Promise<void> {
   // Find all the PR reviewers. There are two groups:
   //
   // 1. The "requested" reviewers -- the ones that the PR author has explicitly
-  // listed for a review (or have been added automatically). These are
-  // discovered with listRequestedReviewers. If they're in this group then
-  // they haven't left a review yet.
+  // listed for a review (or have been added automatically). This information is
+  // already present on the `pull_request` property.
   //
-  // 2. Drive-bys -- other users who have seen the PR and left a review.
-  const {data: requestedReviewers} = await octokit.pulls.listRequestedReviewers(
-    {
-      ...context.repo,
-      pull_number
-    }
-  )
+  // 2. Drive-bys -- other users who have seen the PR and left a review. This
+  // has to be fetched separately.
 
   // requestedReviewers may contain teams. Since a reviewer can approve on
   // behalf of multiple teams, flatten this to a set of usernames
   const reviewers = new Set([
-    ...requestedReviewers.users.map(user => user.login)
+    ...pull_request.requested_reviewers.map(user => user.login)
   ])
-  for (const team of requestedReviewers.teams) {
+  for (const team of pull_request.requested_teams) {
     for (const member of await getTeamMembers(
       context.repo,
       octokit,
