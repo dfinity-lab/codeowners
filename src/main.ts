@@ -325,5 +325,5 @@ async function getTeamMembers(
     })
     teamCache.set(team_slug, members)
   }
-  return Promise.resolve(members.map((member: {login: any}) => member.login))
+  return Promise.resolve(members.map((member: {login: string}) => member.login))
 }
