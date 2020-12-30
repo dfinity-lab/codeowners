@@ -216,18 +216,22 @@ function run() {
         // Find all the PR reviewers. There are two groups:
         //
         // 1. The "requested" reviewers -- the ones that the PR author has explicitly
-        // listed for a review (or have been added automatically). This information is
-        // already present on the `pull_request` property.
+        // listed for a review (or have been added automatically).
         //
         // 2. Drive-bys -- other users who have seen the PR and left a review. This
         // has to be fetched separately.
+        // Fetch requested reviewers. According to the GitHub documentation there
+        // are requested_reviewers and requested_teams properties on the pull
+        // request passed to the action. However, in my testing these always seem
+        // to be empty, so we have to use an API call to get the data.
+        const { data: requestedReviewers } = yield octokit.pulls.listRequestedReviewers(Object.assign(Object.assign({}, context.repo), { pull_number }));
+        const reviewers = new Set([
+            ...requestedReviewers.users.map(user => user.login)
+        ]);
         // requestedReviewers may contain teams. Since a reviewer can approve on
         // behalf of multiple teams, flatten this to a set of usernames
-        const reviewers = new Set([
-            ...pull_request.requested_reviewers.map(user => user.login)
-        ]);
         core.info(`Requested reviewers (users): ${JSON.stringify(reviewers)}`);
-        for (const team of pull_request.requested_teams) {
+        for (const team of requestedReviewers.teams) {
             core.info(`Requested reviewer (team): ${team}`);
             for (const member of yield getTeamMembers(context.repo, octokit, team.slug)) {
                 core.info(`member: ${member}`);
