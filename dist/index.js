@@ -183,6 +183,7 @@ function run() {
         const token = core.getInput('token', { required: true });
         const octokit = github.getOctokit(token);
         const context = github.context;
+        core.info(`eventName: ${context.eventName}`);
         let payload;
         switch (context.eventName) {
             case 'pull_request':
@@ -196,6 +197,7 @@ function run() {
                 return;
         }
         const pull_request = payload.pull_request;
+        core.info(`pull_request: ${JSON.stringify(pull_request)}`);
         const pull_number = pull_request.number;
         // TODO: Ignore draft PRs? .draft property is only present if this is a
         // WebhookPayloadPullRequest -- sort of makes sense, you wouldn't expect

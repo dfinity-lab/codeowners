@@ -23,8 +23,9 @@ export default async function run(): Promise<void> {
   const octokit = github.getOctokit(token)
   const context = github.context
 
-  let payload
+  core.info(`eventName: ${context.eventName}`)
 
+  let payload
   switch (context.eventName) {
     case 'pull_request':
       payload = context.payload as WebHooks.EventPayloads.WebhookPayloadPullRequest
@@ -38,6 +39,7 @@ export default async function run(): Promise<void> {
   }
 
   const pull_request = payload.pull_request
+  core.info(`pull_request: ${JSON.stringify(pull_request)}`)
   const pull_number = pull_request.number
 
   // TODO: Ignore draft PRs? .draft property is only present if this is a
