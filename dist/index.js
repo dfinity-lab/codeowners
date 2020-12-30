@@ -224,11 +224,15 @@ function run() {
         const reviewers = new Set([
             ...pull_request.requested_reviewers.map(user => user.login)
         ]);
+        core.info(`Requested reviewers (users): ${JSON.stringify(reviewers)}`);
         for (const team of pull_request.requested_teams) {
+            core.info(`Requested reviewer (team): ${team}`);
             for (const member of yield getTeamMembers(context.repo, octokit, team.slug)) {
+                core.info(`member: ${member}`);
                 reviewers.add(member);
             }
         }
+        core.info(`Final set of reviewers: ${JSON.stringify(reviewers)}`);
         // Get all the reviews of this PR
         const reviews = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number }));
         // Add all the users who have left a review to the set of reviewers. Also,
