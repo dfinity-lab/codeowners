@@ -208,7 +208,8 @@ function run() {
             'nikclayton-dfinity',
             'nomeata',
             'alin-at-dfinity',
-            'sasa-tomic'
+            'sasa-tomic',
+            'chmllr'
         ];
         if (!authorAllowList.includes(prAuthor)) {
             core.info(`PR author ${prAuthor} not in allow list, skipping`);
