@@ -55,7 +55,8 @@ export default async function run(): Promise<void> {
     'alin-at-dfinity',
     'sasa-tomic',
     'chmllr',
-    'akhi3030'
+    'akhi3030',
+    'bitdivine'
   ]
   if (!authorAllowList.includes(prAuthor)) {
     core.info(`PR author ${prAuthor} not in allow list, skipping`)
