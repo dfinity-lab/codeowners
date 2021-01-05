@@ -204,7 +204,12 @@ function run() {
         // to get a review unless the PR was out of draft.
         const prAuthor = pull_request.user.login;
         core.info(`Author: ${prAuthor}`);
-        const authorAllowList = ['nikclayton-dfinity', 'nomeata', 'alin-at-dfinity'];
+        const authorAllowList = [
+            'nikclayton-dfinity',
+            'nomeata',
+            'alin-at-dfinity',
+            'sasa-tomic'
+        ];
         if (!authorAllowList.includes(prAuthor)) {
             core.info(`PR author ${prAuthor} not in allow list, skipping`);
             return;
