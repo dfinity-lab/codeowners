@@ -211,7 +211,8 @@ function run() {
             'sasa-tomic',
             'chmllr',
             'akhi3030',
-            'bitdivine'
+            'bitdivine',
+            'jwiegley'
         ];
         if (!authorAllowList.includes(prAuthor)) {
             core.info(`PR author ${prAuthor} not in allow list, skipping`);
