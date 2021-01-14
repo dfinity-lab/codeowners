@@ -204,20 +204,6 @@ function run() {
         // to get a review unless the PR was out of draft.
         const prAuthor = pull_request.user.login;
         core.info(`Author: ${prAuthor}`);
-        const authorAllowList = [
-            'nikclayton-dfinity',
-            'nomeata',
-            'alin-at-dfinity',
-            'sasa-tomic',
-            'chmllr',
-            'akhi3030',
-            'bitdivine',
-            'jwiegley'
-        ];
-        if (!authorAllowList.includes(prAuthor)) {
-            core.info(`PR author ${prAuthor} not in allow list, skipping`);
-            return;
-        }
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, codeowners_path);
         // Get the files in this PR
         const files = yield octokit.paginate(octokit.pulls.listFiles, Object.assign(Object.assign({}, context.repo), { pull_number }));
@@ -247,6 +233,8 @@ function run() {
                 reviewers.add(member);
             }
         }
+        // Remove the PR author, no need to include them
+        reviewers.delete(prAuthor);
         core.info(`Final set of reviewers: ${JSON.stringify(reviewers)}`);
         // Get all the reviews of this PR
         const reviews = yield octokit.paginate(octokit.pulls.listReviews, Object.assign(Object.assign({}, context.repo), { pull_number }));
