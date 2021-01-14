@@ -113,6 +113,9 @@ export default async function run(): Promise<void> {
     }
   }
 
+  // Remove the PR author, no need to include them
+  reviewers.delete(prAuthor)
+
   core.info(`Final set of reviewers: ${JSON.stringify(reviewers)}`)
 
   // Get all the reviews of this PR
