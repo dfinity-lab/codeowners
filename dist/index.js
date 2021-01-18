@@ -188,6 +188,10 @@ function run() {
         switch (context.eventName) {
             case 'pull_request':
                 payload = context.payload;
+                if (payload.pull_request.draft) {
+                    core.info('PR is draft, skipping');
+                    return;
+                }
                 break;
             case 'pull_request_review':
                 payload = context.payload;
@@ -199,9 +203,6 @@ function run() {
         const pull_request = payload.pull_request;
         core.info(`pull_request: ${JSON.stringify(pull_request)}`);
         const pull_number = pull_request.number;
-        // TODO: Ignore draft PRs? .draft property is only present if this is a
-        // WebhookPayloadPullRequest -- sort of makes sense, you wouldn't expect
-        // to get a review unless the PR was out of draft.
         const prAuthor = pull_request.user.login;
         core.info(`Author: ${prAuthor}`);
         const codeOwners = yield getCodeOwnersMap(context.repo, octokit, codeowners_path);

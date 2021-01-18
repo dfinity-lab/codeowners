@@ -29,6 +29,10 @@ export default async function run(): Promise<void> {
   switch (context.eventName) {
     case 'pull_request':
       payload = context.payload as WebHooks.EventPayloads.WebhookPayloadPullRequest
+      if (payload.pull_request.draft) {
+        core.info('PR is draft, skipping')
+        return
+      }
       break
     case 'pull_request_review':
       payload = context.payload as WebHooks.EventPayloads.WebhookPayloadPullRequestReview
@@ -41,10 +45,6 @@ export default async function run(): Promise<void> {
   const pull_request = payload.pull_request
   core.info(`pull_request: ${JSON.stringify(pull_request)}`)
   const pull_number = pull_request.number
-
-  // TODO: Ignore draft PRs? .draft property is only present if this is a
-  // WebhookPayloadPullRequest -- sort of makes sense, you wouldn't expect
-  // to get a review unless the PR was out of draft.
 
   const prAuthor = pull_request.user.login
   core.info(`Author: ${prAuthor}`)
